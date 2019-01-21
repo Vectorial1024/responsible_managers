@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<diff>	
+	<!-- The code is executed only when it is a Player station selling stuff. -->
+	<replace sel="//do_if[@value='$trade.buyer.owner == faction.player and $trade.seller.owner == faction.player']/@value">$trade.seller.owner != faction.player or not $trade.seller.isclass{class.station}</replace>
+	
+	<add sel="//do_if[@value='@$tradenpc']" pos="before">
+		<do_if value="not @$tradenpc and @$trade.seller.tradenpc">
+			<set_value name="$tradenpc" exact="$trade.seller.tradenpc" />
+		</do_if>
+	</add>
+	
+	<add sel="//do_if[@value='@$tradenpc']">
+		<!-- 
+			Additional instructions for energy station managers 
+			Setting budget to allow for restocking of secondary resources, even though it is not obligatory 
+		-->
+	
+		<!-- Inserting as an else statement to prevent double firing. -->
+		<do_else>
+			<!--
+				There are two possibilities that we are here:
+				1. Non-energy station failing the budget test; in this case, this code block is not relevant.
+				2. Energy station failing the budget test:
+					a. Budget is 0: check if it passes the sec-ware budget test
+					b. Budget is larger than 0: irrelevant.
+			-->
+			<set_value name="$requiresOverride" exact="false"/>
+
+			<do_if value="$tradenpc.maxbudget == 0">
+				<!-- Case 2a -->
+				<set_value name="$sellerStation" exact="$trade.seller"/>
+				
+				<do_all exact="md.$energyStations_ValuePairs.count" counter="$i">
+					<!-- Verify if the station is an energy station. -->
+					<do_if value="$sellerStation.macro == md.$energyStations_ValuePairs.{$i}.{1}">
+						<!-- Further verify if this energy station has enough funds after reserving some for fully restocking all sec wares -->
+						<set_value name="$secWare" exact="md.$energyStations_ValuePairs.{$i}.{2}"/>
+						<set_value name="$overridenAmount" exact="($sellerStation.cargo.{$secWare}.target) * $secWare.maxprice"/>
+						
+						<do_if value="$tradenpc.hasownaccount and $overridenAmount != 0 and (2 * $tradenpc.money &gt; 3 * $overridenAmount)">
+							<set_value name="$requiresOverride" exact="true"/>
+							<set_value name="$FireInteractiveEvent" exact="true"/>
+							<break/>
+						</do_if>
+						<break/>
+					</do_if>
+				</do_all>
+
+				<remove_value name="$sellerStation"/>
+			</do_if>
+		</do_else>
+	</add>
+	
+	<replace sel="//cue[@name='PlayerFactionTradeCompleted_Timeout']/actions/do_if/@value">($tradenpc.money gt $tradenpc.maxbudget) or (@$requiresOverride)</replace>
+	
+	<add sel="//cue[@name='PlayerFactionTradeCompleted_Timeout']/actions/do_if/transfer_money" pos="before">
+		<set_value name="$transferAmount"/>
+		<!-- $overridenAmount is analogus to the maxbudget variable. -->
+		<!-- $requiresOverride now true only when energy station budget is 0 (no drones) -->
+		<!-- and that balance is larger than $overridenAmount -->
+		<do_if value="$requiresOverride">
+			<!-- Must also check if the money is larger than the budget. Otherwise energy stations can never buy drones. -->
+			<set_value name="$transferAmount" exact="$tradenpc.money - $overridenAmount"/>
+		</do_if>
+		<do_else>
+			<set_value name="$transferAmount" exact="$tradenpc.money - $tradenpc.maxbudget"/>
+		</do_else>
+	</add>
+	
+	<replace sel="//cue[@name='PlayerFactionTradeCompleted_Timeout']/actions/do_if/transfer_money/@amount">$transferAmount</replace>
+</diff>

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<content id="ws_1463410453" name="Responsible Managers" description="Managers dilligently report profits." version="103" save="false" author="Vectorial1024" date="2019-01-21" sync="false" lastupdate="1548085092">
+  <text language="44" description="Managers on energy production stations now correctly report profits."/>
+</content>
